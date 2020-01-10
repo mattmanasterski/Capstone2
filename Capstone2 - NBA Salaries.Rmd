@@ -1,0 +1,562 @@
+---
+title: "PH125.9x - Capstone Project - Your Own Project - Predicting NBA players salary"
+author: "Matthew Manasterski, MBA"
+date: "02/01/2020"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\pagebreak
+# Introduction
+
+The following report is for the second Capstone choose-your-own project for the course: HarvardX - PH125.9x, which is based on choosing your own dataset from available sources like Kaggle or UCI Machine Learning Repository, choosing your own Methodology and Data Anaslysis, showcasing what you have learned in the course thru data exploration, visualization and data manipulation. Running the dataset thru Machine Learning Models and discussing the results.
+
+# Overview
+
+In NBA, like many professional sports, salaries are not equally distributed among the league. There are few players at the top making very large sums of money, multiple times of the salaries that majority of the players make, skewing the league salary average far away from the median.
+The aim of this choose-your-own capstone project is to predict if an NBA players salary is above or below/equal league average using 3 seasons of data and  basing the decision on criteria like player position, Team, offensive stats, defensive stats, and if the player played in the all-star game.
+The approach we will take on this project is to first get familiar with the data by exploring and visualizing the data, manipulating the data and then running models on it to make our predictions.
+
+
+# Data
+
+The Data for this Capstone project has been sourced from publicly available dataset available on Kaggle website https://www.kaggle.com/davra98/nba-players-20162019
+
+This Dataset was created for an University project in Milan for a different project to predict the All Star Game score for each player.
+This Data contains various stats and salaries for last three NBA seasons from 2016-2017 season to 2018-2019 season. This dataset contains 1408 observations with 45 variables for each observation. Although the data has 45 observations we will only choose few variables that will help us predict how good the player is and determine if he is payed above or below league average salary.
+
+Some variables of interest in the dataset:  \
+POS1 = Main position (some players have a second position called POS2) \
+G = Games played \
+GS = Games started \
+MP = Minutes played \
+FG = Field Goals Per Game \
+FGA = Field Goal Attempts Per Game \
+FG.= Field Goal Percentage \
+X3P = 3-Point Field Goals Per Game \
+X3PA = 3-Point Field Goal Attempts Per Game \
+X3P. = FG% on 3-Pt FGAs. \
+X2P = 2-Point Field Goals Per Game \
+X2PA = 2-Point Field Goal Attempts Per Game \
+X2P. = FG% on 2-Pt FGAs. \
+eFG. = Effective Field Goal Percentage \
+FT = Free Throws Per Game \
+FTA = Free Throw Attempts Per Game \
+FT.= Free Throw Percentage \
+ORB = Offensive Rebounds Per Game \
+DRB = Defensive Rebounds Per Game \
+TRB = Total Rebounds Per Game \
+AST = Assists Per Game \
+STL= Steals Per Game \
+BLK = Blocks Per Game \
+TOV = Turnovers Per Game \
+PF = Personal Fouls Per Game \
+PTS = Points Per Game \
+MEAN_VIEWS = Daily views on wikipedia \
+PLAY = If the player played in the all star game \
+
+
+
+# Methods and Analysis
+
+We will first get the data by reading the csv data file "nba_final.csv" and inspect the dataset with head, str, and summary functions. Based on what we see in the dataset from these functions and our basic knowledge of the NBA game, we will then pick a subset of variables that we think are useful to us. We will then use data visualization techniques to get familiar with the data and confirm our variables. We will then transform Salary column into 2 factor AboveAvg column which will state if the player has above league average salary or that of below/equal league average. Next we will split the dataset into train and test sets and run our Machine Learning models. 
+
+
+## Data - Getting and Exploring the Data
+
+We start by loading the necessary libraries we know we will need.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+# Load necessary libraries
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(caTools)) install.packages("caTools", repos = "http://cran.us.r-project.org")
+if(!require(e1071)) install.packages("e1071", repos = "http://cran.us.r-project.org")
+```
+
+We then load our downloaded dataset from the working directory.
+```{r, echo = TRUE}
+# Read in the dataset
+nba_players <- read.csv('nba_final.csv')
+```
+
+Let's explore the loaded dataset with looking at the first few columns.
+```{r, echo = TRUE}
+# Explore the structure of the dataset by looking at the head columnns
+head(nba_players)
+```
+We see right away that this dataset has many variables that are mostly numeric as they represent players statistics, there are also some other values like players names, players id and positon.
+
+We will take closer look at the structure of the dataset.
+
+```{r, echo = TRUE}
+str(nba_players)
+```
+From the structure above we can see that the dataset has 1408 observations across 45 variables. For the purpose of this project 45 variables is way too many, and we will have to get rid of those not useful to us. Right away we can see variables that will not be useful to us like Player.x and Player_ID, both of which have Factor of 660, these are player names and player ids, the purpose of this project is to determine if the player is above average salary or below, we do not need to know the player's name. Before we get rid of any variables lets lastly look at the dataset summary.
+
+```{r, echo = TRUE}
+#Display Summary of the set
+summary(nba_players)
+```
+Between the structure and the summary of the dataset  we can see right away there are some columns that will not be useful to us at all. Rk is not useful to us as it represents alphabetical order of the players, we already mentioned Player.x Player_ID, is not useful as it has too many factors, Pos2 has minimal values and 1396 NA's so it also is not useful.
+
+With 45 variables, using our basic knowledge of the NBA game lets discuss those variable that will be useful in our analysis and those we will keep rather than those that we will drop. 
+
+Pos1 (position) is worth taking a look at, Age will defnietly be factor as older players that have proven themselves in their prime earn more than younger players. G - Games Played, GS - Games Started and MP - Minutes played is definitely worth exploring as starters and those players that play more minutes earn more. This dataset provides us with extensive statistics, for our purpose we will explore few offensive and defensive statistics (FG, X3P, X2P, FT, TRB, AST, STL, BLK, PTS). We will also explore if Season plays a role as seasons progress salaries rise, and finally if the player played in the all-star game (Play). We of course need to keep the Salary variable we are trying to predict at least for now for the purpose of data exploration, later we will factor salary into factor of 2, above league average or below.
+
+Select the variables we will keep.
+```{r, echo = TRUE}
+nba_players <- select(nba_players, Pos1, Age, Tm, G, GS, MP, FG, X3P, X2P, FT, TRB, AST, STL, BLK, PTS, Salary, Season, Play)
+```
+
+Before exploring the data check for missing values in nba_players, strip if any found.
+```{r, echo = TRUE}
+nba_players <- na.omit(nba_players)
+```
+
+Review the new structure.
+```{r, echo = TRUE}
+str(nba_players)
+```
+\pagebreak
+
+## Data Visualization
+
+### NBA Salaries
+
+Let’s start by visualizing players’ salaries.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot Players Salary
+ggplot(nba_players,aes(Salary)) + 
+  geom_histogram(color='darkblue',fill='lightblue') + 
+  ggtitle('NBA Salaries')
+```
+We see that majority of the players make under 5 Million dollars, in fact we know from our earlier summary that  median salary is $3,384,298 well below average salary of $6,790,048 with max salary $37,457,154. What this tells us is that there are number of players that make a lot more money than majority of the players causing the league mean Salary value to be around double of the median value.
+
+Let’s a explore some predictors that might good indicators of Salary and decide what we want to keep. Let’s start with Position.
+
+\pagebreak
+
+### Position (Pos1)
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot Salary by Position
+ggplot(nba_players,aes(factor(Pos1),Salary)) + 
+  geom_boxplot(aes(color=factor(Pos1))) + 
+  theme_bw() + 
+  ggtitle('Salary by Position')
+```
+From the above boxplot we see that Center (C) position has the highest average of salaries but does not have any outliers, Other position averages are fairly close, but what is important to notice that Point Guard (PG) has the most and highest paid outliers in salary, this could skew average salary. We should keep this indicator.
+
+\pagebreak
+
+### Age
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+#Plot Salary by Age
+ggplot(nba_players,aes(Age,Salary)) + 
+  geom_point(aes(color=Salary),alpha=0.5)  + 
+  scale_color_continuous(low='lightgreen',high='darkgreen') + 
+  geom_smooth() + theme_bw()
+```
+From this plot we see that on average players earn most at their peak between ages of 28 to 34, then start trending back down the older they get. This is a very good indicator of Salary to keep.
+
+\pagebreak
+
+### Team
+
+Does it matter what team does the player play on?
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+#Plot Salary by team
+ggplot(nba_players,aes(factor(Tm),Salary)) + 
+  geom_boxplot(aes(color=factor(Tm))) +theme_bw() + 
+  ggtitle('Salaries by team') + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+It does seem that some teams have bigger budgets than others, so it is a factor we should keep.
+
+\pagebreak
+
+### Game Playes stats - G, GS, Min
+
+Plot Games Played, Games Started and Minutes played
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot G-Games Played 
+ggplot(nba_players,aes(G,Salary)) + 
+  geom_point(alpha=0.2) + 
+  geom_smooth() + 
+  theme_bw()
+```
+Games played seems like a good steady indicator.
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot Games Started
+ggplot(nba_players,aes(GS,Salary)) + 
+  geom_point(alpha=0.2) + 
+  geom_smooth() + 
+  theme_bw()
+```
+We see that Games started is a good indicator, although it peaks at around 73 Games, this probably to account for injuries and maintenance days for the stars which would throw off our prediction, we might want to get rid of this indicator.
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot Minutes played 
+ggplot(nba_players,aes(MP,Salary)) + 
+  geom_point(alpha=0.2) + 
+  geom_smooth() + 
+  theme_bw()
+```
+We see that players that earn more definitely play more minutes, players earning over $10 Million play over 30 minutes. MP is probably the most important out of the three variables.
+
+\pagebreak
+
+### Offensive Stats
+
+We will look at offensive stats next.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot FG = Field Goals Per Game
+ggplot(nba_players,aes(FG,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot X2P = 2-Point Field Goals Per Game
+ggplot(nba_players,aes(X2P,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot X3P = 3-Point Field Goals Per Game
+ggplot(nba_players,aes(X3P,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot FT - Free throws
+ggplot(nba_players,aes(FT,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot PTS - Points Per Game
+ggplot(nba_players,aes(PTS,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+Field Goals (FG) is a combination of X2P and X3P, we want to separate the field goals as X3P is closer related to position of Point Guard. To avoid over-fitting we will get rid of FG.
+
+All other offensive stats variables look like good indicators in the above plots, we should keep them all.
+
+\pagebreak
+
+### Defensive Stats
+
+Some players are better defensive players than offensive and get payed well for being defensive players, we will next look at some of these stats - TRB, AST, STL, BLK
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# Plot TRB = Total Rebounds Per Game 
+ggplot(nba_players,aes(TRB,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# AST = Assits Per Game
+ggplot(nba_players,aes(AST,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+# Assists also look like a good indicator.
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# STL= Steals Per Game 
+ggplot(nba_players,aes(STL,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+# Steals also look like a good indicator.
+```
+
+\pagebreak
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+# BLK = Blocks Per Game
+ggplot(nba_players,aes(BLK,Salary)) + 
+  geom_point(alpha=0.2) +  
+  geom_smooth() + 
+  theme_bw()
+```
+All the defensive stats seem relevant to us from looking at the plots.
+
+\pagebreak
+
+### Season
+
+Lets look if the seasons plays a role.
+
+````{r, echo = TRUE, message = FALSE, warning = FALSE}
+# plot 3 Seasons
+ggplot(nba_players,aes(factor(Season),Salary)) + 
+  geom_boxplot(aes(color=factor(Season))) + 
+  theme_bw()
+```
+As seasons progress the salaries are going up slightly especially for the outlier players making more money, we that 2018-2019 has the highest salaries.
+\pagebreak
+
+### All Star 
+
+Last factor to look at is if the player played in the All-Star Game.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE}
+#Played in allstar game
+ggplot(nba_players,aes(factor(Play),Salary)) + 
+  geom_boxplot(aes(color=factor(Play))) + 
+  theme_bw()
+```
+Although there are few outliers for those that did not play in all-star game, we can see that on average those that played in the all-star game earn more than double of those that did not.
+
+\pagebreak
+## Data Manipulaton
+
+We will first get rid of the indicators we identified in the previous section: GS and FG.
+
+```{r, echo = TRUE}
+nba_players <- select(nba_players, -GS, -FG)
+```
+
+Next we will calculate the league average salary and create a new column AboveAvg indicating if the player is above or below/equal league average salary. To do that will use a function aboveAvg.
+
+```{r, echo = TRUE}
+# What is the Average salary in the NBA
+mu_salary <- mean(nba_players$Salary)
+mu_salary
+
+# Function that determines if the player is above average salary
+aboveAvg <- function(x){
+  if (x>mu_salary){
+    return("Yes")
+  }else{
+    return("No")
+  }
+}
+
+# Add a new column AboveAvg to the dataset
+nba_players$AboveAvg <-sapply(nba_players$Salary,aboveAvg)
+```
+
+Next we will need to re-factor the new column.
+
+```{r, echo = TRUE}
+# Refactor the new column
+nba_players$AboveAvg <- factor(nba_players$AboveAvg)
+
+```
+
+Now we can drop our Salary column and check out the new stucture of our dataset.
+
+```{r, echo = TRUE}
+# Drop the Salary column
+nba_players <- select(nba_players, -Salary)
+
+# Check the structure of the Dataset before proceeding with the model
+str(nba_players)
+```
+
+# Modeling/Results
+
+## Create Train and test sets
+
+Before we start modeling our data we will need to split of dataset into train and test split.
+We will use 70% split for train set and 30% for test set.
+```{r, echo = TRUE}
+# Set a random seed 
+set.seed(101) 
+
+# Split data nba_players assigning split ratio to TRUE
+sample_nba <- sample.split(nba_players$AboveAvg, SplitRatio = 0.70) 
+
+# Training Data
+train = subset(nba_players, sample_nba == TRUE)
+
+# Testing Data
+test = subset(nba_players, sample_nba == FALSE)
+```
+
+
+## Model 1: Logistic Regression Model
+
+We first run logistic regression model on our train data.
+
+```{r, echo = TRUE}
+# Run Logistic Regression model
+model_lgr = glm(AboveAvg ~ ., family = binomial(logit), data = train)
+```
+
+Lets see the results of the model.
+
+```{r, echo = TRUE}
+# Print Summary of the model
+summary(model_lgr)
+```
+From the summary we see that the most important factor is Age with the lowest Pr value, followed by Minutes Played (MP) and then position  of Point Guard (Pos1PG). This makes sense as we recall from our plots, players that played over 30 minutes had significantly higher salaries and those of Pos1 of PG had also the highest salaries.
+
+Let's now see how well our Model performs predicting if salary is above or below/equal to league average.
+
+```{r, echo = TRUE}
+# Predict the values using the model and the test data
+test$predicted.AboveAvg = predict(model_lgr, newdata=test, type="response")
+
+#Lets see how well we predicted the results with confusion matrix
+table(test$AboveAvg, test$predicted.AboveAvg > 0.5)
+```
+Our model predicted correctly that 100 players out 137 players have above league average salary, getting 37 wrong. It also predicted 233 out of 267 players have below or equal salary to that of league average getting 34 players wrong.
+
+Let's Calculate the accuracy of our model with confusion matrix.
+
+```{r, echo = TRUE}
+(233+100)/(233+100+34+37)
+```
+We were able to achieve the accuracy of 82.43%.
+
+Let's look at the stats with confusion matrix function.
+
+To use the confusion matrix function we will first have to refactor our test$predicted.AboveAvg result so it’s the same factor as test.AboveAvg. We will use the following code.
+
+```{r, echo = TRUE}
+# Refactor function
+aboveAvgTest <- function(x){
+  if (x > 0.5){
+    return("Yes")
+  }else{
+    return("No")
+  }
+}
+
+test$predicted.AboveAvg <-sapply(test$predicted.AboveAvg,aboveAvgTest)
+# Factor test$predicted.AboveAvg now with 2 values.
+test$predicted.AboveAvg <- factor(test$predicted.AboveAvg)
+str(test$predicted.AboveAvg)
+```
+
+Now that test$predicted.AboveAvg and test.AboveAvg are of the same factor call confusion Matrix.
+
+```{r, echo = TRUE}
+# Print Confusion Matrix
+confusionMatrix(data = test$predicted.AboveAvg, reference = test$AboveAvg)
+```
+We see that the function gave us the same accuracy and some additonal stats like Sensitivity of 0.8727 and Specificity of 0.7299, along with p-value of 1.852e-13.
+
+
+## Model 2: Logistic Regression Model with Step function
+
+Let's see if we can improve this Model with build in step function that will help us get rid of factors that are not as important. We start by calling step function on our model_lgr.
+
+```{r, echo = TRUE, results = 'hide'}
+model_lgr_step <- step(model_lgr)
+```
+
+Let's look at the summary of our new model.
+```{r, echo = TRUE}
+# Print Summary
+summary(model_lgr_step)
+```
+We see that our new step model only kept 9 of the most important factors, those with at least one star. Let’s see how this new model preforms in making the predictions.
+
+First we need to drop test$predicted.AboveAvg column from our previous iteration before running new prediction, then run the predict function.
+
+```{r, echo = TRUE}
+test <- select(test, -predicted.AboveAvg)
+
+# Get new predicted AboveAvg values
+test$predicted.AboveAvg = predict(model_lgr_step, newdata=test, type="response")
+
+table(test$AboveAvg, test$predicted.AboveAvg > 0.5)
+```
+
+It does not look like the new step model preformed as well as our original model. Let’s calculate our new accuracy.
+
+```{r, echo = TRUE}
+(224+96)/(224+96+43+41)
+```
+Here we see that our accuracy actually got worst with the new step model, it when down from 82.43% to 79.21% , a loss or 3.22%.
+
+
+## Model 3: SVM Model
+
+Let's see if we can improve our prediction with SVM model.
+
+```{r, echo = TRUE}
+# call the svm model
+model_svm <- svm(AboveAvg ~ ., data = train)
+
+# print summary of the model
+summary(model_svm)
+```
+
+Again, we need to drop test$predicted.AboveAvg column from our previous iteration before running new prediction, then run the predict function.
+
+```{r, echo = TRUE}
+test <- select(test, -predicted.AboveAvg)
+# Call predict
+test$predicted.AboveAvg <- predict(model_svm,test[1:15])
+
+table(test$predicted.AboveAvg,test$AboveAvg)
+```
+We see that SVM model was a little better than our original logistic regression model at predicting those players with below/equal average salary, getting 239 out of 267 players right, but it did worst for those players above league average, getting only 90 out 137 right.
+Let’s Calculate the accuracy of our model to see how close they are in accuracy.
+
+```{r, echo = TRUE}
+(239+90)/(239+90+47+28)
+```
+
+We see that the accuracy of our SVM model is actually around 1% lower at 81.44% than our Logistic model which had accuracy of 82.43%.
+
+
+# Conclusion
+
+Our first and best model, Logistic Regression model predicted correctly that 100 players out 137 players have above league average salary, getting 37 wrong. It also predicted 233 out of 267 players have below or equal salary to that of league average getting 34 players wrong, giving us overall accuracy of 82.43%. With all the outside factors like missing games to injury, having better agents negotiating contracts, playoff success not accounted in the dataset and other such factors, we think 82.43% accuracy is a very good in those circumstances, so our model is a good model.
+
+We tried to improve our Logistic Regression model by using the step function, however that actually resulted in loss of accuracy from 82.43% to 79.21%, a loss or 3.22%. SVM model faired a little better at 81.44% but at end our first model, Logistic Regression model ended up being the best model at accuracy of 82.43%.
+
+
+
+
+
+
